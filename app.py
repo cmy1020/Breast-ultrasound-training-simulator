@@ -51,7 +51,8 @@ except AttributeError:
 
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QOpenGLWidget,
                              QVBoxLayout, QHBoxLayout, QWidget, QLabel,
-                             QPushButton, QMessageBox, QStatusBar, QComboBox)
+                             QPushButton, QMessageBox, QStatusBar, QComboBox,
+                             QSlider)
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QImage, QPixmap, QSurfaceFormat
 from OpenGL.GL import *
