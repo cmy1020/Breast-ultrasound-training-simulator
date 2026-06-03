@@ -1,0 +1,42 @@
+
+---
+# Experiment
+model_name: Breast
+tumorID: 1 #id of the tumor to consider in current simulation
+num_deformations: 4 #number of deformation levels applied in one experiment
+
+# Simulation
+type: Penalty # Choose among ["LM", "Penalty", "PrescrDispl"]
+use_gui: True #if True, user interface is launched
+dt: 0.01 #time step of the simulation [s] 0.02
+gravity: [0, 0, 0] # gravity [m/s2]
+waittime: 0.02 #time [s] to wait before applying the next deformation (now it corresponds to 2*dt)
+alarm_distance: 0.004 #0.002
+contact_distance: 0.003 #0.001
+
+# Breast
+breast_volume_file: "./inData/breast_13k.msh" #tetrahedral mesh (.msh) filename
+breast_visual_file: "./inData/breast_5001.stl" #surface mesh (.stl) filename
+breast_collision_file: "./inData/breast_5001.stl" #surface mesh (.stl) filename
+breast_fixed_file: "./inData/fixednodes_13k.txt" #indices of the nodes to fix
+# Physical parameters
+rho: 1075 #density of the model [kg/m3]1075
+material: Corotated #constitutive law, choose among [StVenantKirchhoff, NeoHookean, Corotated]/Ne
+E: 3000 #Young's modulus 2850
+nu: 0.49 #Poisson ratio 0.49
+
+# Lesion
+lesion_basedir: "./inData/ground_truth/tumor"
+lesion_surface_file: "./inData/lesion_nodule.stl"   # nodule model
+
+# Probe
+probe_visual_file: './inData/us_probe_visual.stl'
+probe_collision_file: './inData/us_probe_collision.stl'
+probe_velocity: 0.2 #velocity of the US probe [m/s], used when probe is driven by linear motion
+probe_initial_offset: [0.0,-0.005,0.0] #initial offset to apply to the probe to avoid initial contact
+
+# Input/output
+save_positions: 0 #set to 1 to save fiducial position at each time step
+save_times: 0 #set to 1 to save time statistics at each time step
+outdata_dir: ./outData #directory to save output data
+...

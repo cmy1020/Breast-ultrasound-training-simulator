@@ -1,0 +1,54 @@
+---
+# ============================================================
+# Variant: FLAT
+#   Breast shape: scale (x,y,z) = (1.15, 0.55, 0.90) applied
+#                 around the mesh centroid. Resulting bounding
+#                 box ≈ 163 x 68 x 70 mm (flatter, wider).
+#   Lesion     : original 16 mm nodule, transformed with the
+#                same affine so it stays anatomically coherent
+#                inside the new shape.
+# Usage: copy this file to ../../input_parameters.yml and run.
+# NOTE  : the tetrahedral mesh breast_13k.msh in the flat/ folder
+#         keeps the same topology/indexing as the original, so
+#         ../../inData/fixednodes_13k.txt is still valid.
+# ============================================================
+
+# Experiment
+tumorID: 1
+num_deformations: 4
+
+# Simulation
+type: Penalty
+use_gui: True
+dt: 0.01
+gravity: [0, 0, 0]
+waittime: 0.02
+alarm_distance: 0.004
+contact_distance: 0.003
+
+# Breast  -- FLAT variant
+breast_volume_file: "./inData/variants/flat/breast_13k.msh"
+breast_visual_file: "./inData/variants/flat/breast_5001.stl"
+breast_collision_file: "./inData/variants/flat/breast_5001.stl"
+breast_fixed_file: "./inData/fixednodes_13k.txt"   # same indices, same topology
+
+# Physical parameters
+rho: 1075
+material: Corotated
+E: 3000
+nu: 0.49
+
+# Lesion  -- FLAT variant (affine-transformed)
+lesion_basedir: "./inData/variants/flat/tumor"   # resolves to inData/variants/flat/tumor1/Fiducial0.txt
+lesion_surface_file: "./inData/variants/flat/lesion_nodule.stl"
+
+# Probe
+probe_visual_file: './inData/us_probe_visual.stl'
+probe_collision_file: './inData/us_probe_collision.stl'
+probe_velocity: 0.2
+probe_initial_offset: [0.0, -0.005, 0.0]
+
+# Input/output
+save_positions: 0
+save_times: 0
+outdata_dir: ./outData

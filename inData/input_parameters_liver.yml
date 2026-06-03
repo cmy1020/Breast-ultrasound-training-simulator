@@ -1,0 +1,43 @@
+
+---
+# Experiment
+model_name: Liver
+tumorID: 0 # 0 = 无结节
+num_deformations: 0 # 仅 Omega6 交互模式
+
+# Simulation
+type: Penalty
+use_gui: True
+dt: 0.01
+gravity: [0, 0, 0]
+waittime: 0.02
+alarm_distance: 0.004
+contact_distance: 0.003
+
+# Liver
+model_scale: 0.025
+model_offset: [0.05, -0.1, 0.0]  # X,Y,Z offset to move model toward probe
+breast_volume_file: "./inData/liver.msh"
+breast_visual_file: "./inData/liver_smooth.obj"
+breast_collision_file: "./inData/liver.stl"
+breast_fixed_file: "./inData/fixednodes_liver.txt"
+rho: 1075
+material: Corotated
+E: 3000
+nu: 0.3
+
+# Lesion（肝脏无结节）
+lesion_basedir: ""
+lesion_surface_file: ""
+
+# Probe
+probe_visual_file: './inData/us_probe_visual.stl'
+probe_collision_file: './inData/us_probe_collision.stl'
+probe_velocity: 0.2
+probe_initial_offset: [0.0,-0.005,0.0]
+
+# Input/output
+save_positions: 0
+save_times: 0
+outdata_dir: ./outData
+...

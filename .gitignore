@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environment
+venv/
+
+# IDE
+.vscode/
+.idea/
+.claude/
+
+# SOFA auto-generated
+*.log
+*.ini
+*.view
+
+# Large model checkpoints (~10GB each)
+checkpoints/
+checkpoints_first/
+checkpoints_second/
+
+# GAN training data
+datasets/
+training_samples/
+
+# Generated outputs
+archive/
+outputs/
+test_results/
+outData/
+
+# Runtime data dumps
+fx_data_*.txt
+perf_report_*.json
+cmy_sync.csv
+human_data_clean.csv
+real_data_clean.csv
+scan_data.csv
+scan_data_clean.csv
+
+# Generated images in root (moved to outputs/)
+*.png
