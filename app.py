@@ -2272,6 +2272,7 @@ class ParameterPanel(QWidget):
         lbl_mat.setObjectName("section_label")
         layout.addWidget(lbl_mat)
 
+        self._add_slider(layout, "Young", 500, 10000, 3000, self._on_young)  # E: 500-10000 Pa
         self._add_slider(layout, "Density", 500, 2000, 1075, self._on_density)
         self._add_slider(layout, "Poisson", 10, 49, 45, self._on_poisson)  # 0.10-0.49
 
@@ -2283,6 +2284,7 @@ class ParameterPanel(QWidget):
         self._add_slider(layout, "Speed", 10, 100, 60, self._on_speed)    # 0.1-1.0
         self._add_slider(layout, "ForceGain", 10, 500, 300, self._on_force_gain)
         self._add_slider(layout, "MaxForce", 5, 100, 20, self._on_max_force)  # 0.5-10.0N
+        self._add_slider(layout, "ContactK", 50, 100000, 30000, self._on_contact_k)  # contact stiffness
 
         # ── Section 3: Model Shift ──
         lbl_pos = QLabel("Position")
@@ -2350,6 +2352,11 @@ class ParameterPanel(QWidget):
         layout.addLayout(r3)
 
     # ── Callbacks ────────────────────────────────────────────────────
+    def _on_young(self, val):
+        self._v_Young.setText(str(val))
+        if self.controller and self.controller.breast:
+            self.controller.breast.set_young_modulus(float(val))
+
     def _on_density(self, val):
         self._v_Density.setText(str(val))
         if self.controller and self.controller.breast:
@@ -2377,6 +2384,15 @@ class ParameterPanel(QWidget):
         self._v_MaxForce.setText(f"{n:.1f}")
         if self.controller and self.controller.probe:
             self.controller.probe.max_force = n
+
+    def _on_contact_k(self, val):
+        self._v_ContactK.setText(str(val))
+        try:
+            cm = self.controller.root.getObject("ContactManager")
+            if cm and hasattr(cm, 'responseParams'):
+                cm.responseParams.value = f'stiffness={val}'
+        except Exception:
+            pass
 
     def _shift(self, dx, dy, dz):
         if self.controller and self.controller.breast:

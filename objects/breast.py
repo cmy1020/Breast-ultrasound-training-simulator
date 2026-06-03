@@ -296,6 +296,15 @@ class Breast(Sofa.Core.Controller):
         except Exception:
             pass
 
+    def set_young_modulus(self, value: float):
+        """实时修改杨氏模量 (Pa)"""
+        try:
+            fem = self.node.getObject("FEM")
+            if fem and hasattr(fem, 'youngModulus'):
+                fem.youngModulus.value = float(value)
+        except Exception:
+            pass
+
     def shift_model(self, dx: float, dy: float, dz: float):
         """平移整个模型（含体网格 + 碰撞表面 + 参考位置）"""
         offset = np.array([dx, dy, dz], dtype=np.float64)
