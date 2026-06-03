@@ -231,7 +231,7 @@ class PerformanceMonitor:
         """保存JSON报告"""
         if filepath is None:
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filepath = f"perf_report_{ts}.json"
+            filepath = f"outputs/perf_reports/perf_report_{ts}.json"
         data = self.get_stats()
         data['timestamp'] = datetime.now().isoformat()
         with open(filepath, 'w', encoding='utf-8') as f:
@@ -273,7 +273,7 @@ class PerformanceMonitor:
                   f"{d['p95']:>9.2f} "
                   f"{d['n']:>7}")
         print("=" * 70)
-        return self.save_report("perf_report_final.json")
+        return self.save_report("outputs/perf_reports/perf_report_final.json")
 
 
 # =============================================================================
