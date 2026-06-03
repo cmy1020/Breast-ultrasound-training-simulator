@@ -278,6 +278,36 @@ class Breast(Sofa.Core.Controller):
             return self._contact_force.copy()
         return np.zeros(3)
 
+    def set_density(self, value: float):
+        """实时修改材料密度 (kg/m³)"""
+        try:
+            mass = self.node.getObject("breast_mass")
+            if mass and hasattr(mass, 'massDensity'):
+                mass.massDensity.value = float(value)
+        except Exception:
+            pass
+
+    def set_poisson_ratio(self, value: float):
+        """实时修改泊松比"""
+        try:
+            fem = self.node.getObject("FEM")
+            if fem and hasattr(fem, 'poissonRatio'):
+                fem.poissonRatio.value = float(value)
+        except Exception:
+            pass
+
+    def shift_model(self, dx: float, dy: float, dz: float):
+        """平移整个模型（含体网格 + 碰撞表面 + 参考位置）"""
+        offset = np.array([dx, dy, dz], dtype=np.float64)
+        try:
+            self.topology.position.value += offset
+        except Exception:
+            pass
+        try:
+            self.surface_rest_position += offset
+        except Exception:
+            pass
+
 
 class Lesion(Sofa.Core.Controller):
     """Sofa Controller representing a point or a small nodule mapped to a parent deformable object"""

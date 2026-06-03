@@ -155,10 +155,15 @@ def ensure_plugins():
 class SofaGLWidget(QOpenGLWidget):
     """SOFA 3D 仿真显示窗口（正确优化版）"""
 
-    def __init__(self, root_node, parent=None, model_name="Breast"):
+    def __init__(self, root_node, parent=None, model_name="Breast", controller=None):
         super().__init__(parent)
         self.root_node = root_node
         self.model_name = model_name  # "Breast" or "Liver"
+
+        # Parameter panel overlay (top-left, below pose overlay)
+        self.param_panel = ParameterPanel(self, controller=controller)
+        self.param_panel.move(10, 170)
+        self.param_panel.show()
 
         # Camera defaults: adjust per model
         if model_name == "Liver":
@@ -2211,6 +2216,173 @@ class UltrasoundWidget(QWidget):
 # 主窗口 - 修复预定义路径结束检测
 # ============================================================
 # ============================================================
+# ============================================================
+# 参数面板 — 3D 画面左上角，姿态小窗口下方
+# ============================================================
+class ParameterPanel(QWidget):
+    """半透明参数面板，实时调节仿真参数"""
+
+    def __init__(self, parent, controller=None):
+        super().__init__(parent)
+        self.controller = controller
+        self.setFixedWidth(185)
+        self.setStyleSheet("""
+            QWidget {
+                background: rgba(18, 18, 28, 0.88);
+                color: #ddd;
+                font-size: 11px;
+                border-radius: 6px;
+            }
+            QLabel#section_label {
+                color: #4ec9ff;
+                font-weight: bold;
+                font-size: 12px;
+                padding: 3px 4px;
+            }
+            QSlider::groove:horizontal {
+                height: 4px; background: #444;
+                border-radius: 2px;
+            }
+            QSlider::handle:horizontal {
+                width: 10px; height: 14px;
+                background: #4ec9ff; border-radius: 3px;
+                margin: -5px 0;
+            }
+            QPushButton {
+                background: #3a3a4a; color: #ddd;
+                border: 1px solid #555; border-radius: 3px;
+                padding: 3px 6px; font-size: 12px;
+                min-width: 22px; min-height: 22px;
+            }
+            QPushButton:hover { background: #4a4a5a; border-color: #4ec9ff; }
+            QPushButton:pressed { background: #2a2a3a; }
+            QLabel#val_label {
+                color: #aaa; font-size: 10px;
+                min-width: 38px;
+            }
+        """)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(6, 4, 6, 4)
+        layout.setSpacing(4)
+
+        # ── Section 1: Material ──
+        lbl_mat = QLabel("Materials")
+        lbl_mat.setObjectName("section_label")
+        layout.addWidget(lbl_mat)
+
+        self._add_slider(layout, "Density", 500, 2000, 1075, self._on_density)
+        self._add_slider(layout, "Poisson", 10, 49, 45, self._on_poisson)  # 0.10-0.49
+
+        # ── Section 2: Haptics ──
+        lbl_hap = QLabel("Haptics")
+        lbl_hap.setObjectName("section_label")
+        layout.addWidget(lbl_hap)
+
+        self._add_slider(layout, "Speed", 10, 100, 60, self._on_speed)    # 0.1-1.0
+        self._add_slider(layout, "ForceGain", 10, 500, 300, self._on_force_gain)
+        self._add_slider(layout, "MaxForce", 5, 100, 20, self._on_max_force)  # 0.5-10.0N
+
+        # ── Section 3: Model Shift ──
+        lbl_pos = QLabel("Position")
+        lbl_pos.setObjectName("section_label")
+        layout.addWidget(lbl_pos)
+
+        self.shift_step = 0.005  # 每次位移步长 (m)
+        self._add_shift_buttons(layout)
+
+    # ── Slider helper ────────────────────────────────────────────────
+    def _add_slider(self, layout, name, vmin, vmax, vdefault, callback):
+        row = QHBoxLayout()
+        lbl = QLabel(name)
+        lbl.setFixedWidth(52)
+        row.addWidget(lbl)
+
+        slider = QSlider(Qt.Horizontal)
+        slider.setRange(vmin, vmax)
+        slider.setValue(vdefault)
+        slider.valueChanged.connect(callback)
+        row.addWidget(slider)
+
+        val_lbl = QLabel(str(vdefault))
+        val_lbl.setObjectName("val_label")
+        row.addWidget(val_lbl)
+
+        # Store reference for updating label
+        setattr(self, f"_s_{name}", slider)
+        setattr(self, f"_v_{name}", val_lbl)
+
+        layout.addLayout(row)
+
+    # ── Shift buttons helper ─────────────────────────────────────────
+    def _add_shift_buttons(self, layout):
+        # Row 1: Up
+        r1 = QHBoxLayout()
+        r1.addStretch()
+        btn_u = QPushButton("↑")
+        btn_u.clicked.connect(lambda: self._shift(0, 0, self.shift_step))
+        r1.addWidget(btn_u)
+        r1.addStretch()
+        layout.addLayout(r1)
+
+        # Row 2: Left, Down, Right
+        r2 = QHBoxLayout()
+        btn_l = QPushButton("←")
+        btn_l.clicked.connect(lambda: self._shift(-self.shift_step, 0, 0))
+        r2.addWidget(btn_l)
+        btn_d = QPushButton("↓")
+        btn_d.clicked.connect(lambda: self._shift(0, 0, -self.shift_step))
+        r2.addWidget(btn_d)
+        btn_r = QPushButton("→")
+        btn_r.clicked.connect(lambda: self._shift(self.shift_step, 0, 0))
+        r2.addWidget(btn_r)
+        layout.addLayout(r2)
+
+        # Row 3: Forward, Backward
+        r3 = QHBoxLayout()
+        btn_f = QPushButton("Fwd")
+        btn_f.clicked.connect(lambda: self._shift(0, self.shift_step, 0))
+        r3.addWidget(btn_f)
+        btn_b = QPushButton("Bwd")
+        btn_b.clicked.connect(lambda: self._shift(0, -self.shift_step, 0))
+        r3.addWidget(btn_b)
+        layout.addLayout(r3)
+
+    # ── Callbacks ────────────────────────────────────────────────────
+    def _on_density(self, val):
+        self._v_Density.setText(str(val))
+        if self.controller and self.controller.breast:
+            self.controller.breast.set_density(float(val))
+
+    def _on_poisson(self, val):
+        nu = val / 100.0
+        self._v_Poisson.setText(f"{nu:.2f}")
+        if self.controller and self.controller.breast:
+            self.controller.breast.set_poisson_ratio(nu)
+
+    def _on_speed(self, val):
+        s = val / 100.0
+        self._v_Speed.setText(f"{s:.2f}")
+        if self.controller and self.controller.probe:
+            self.controller.probe.position_amplification = s
+
+    def _on_force_gain(self, val):
+        self._v_ForceGain.setText(str(val))
+        if self.controller and self.controller.probe:
+            self.controller.probe.force_gain_deform = float(val)
+
+    def _on_max_force(self, val):
+        n = val / 10.0
+        self._v_MaxForce.setText(f"{n:.1f}")
+        if self.controller and self.controller.probe:
+            self.controller.probe.max_force = n
+
+    def _shift(self, dx, dy, dz):
+        if self.controller and self.controller.breast:
+            self.controller.breast.shift_model(dx, dy, dz)
+            print(f"[Shift] model moved: ({dx:.3f}, {dy:.3f}, {dz:.3f})")
+
+
 # 主窗口 - 联动画图界面 (Qt Designer) 版本
 # ============================================================
 class MainApp(QMainWindow, Ui_MainWindow):
@@ -2331,7 +2503,7 @@ class MainApp(QMainWindow, Ui_MainWindow):
                 self.sofa_view_placeholder.deleteLater()
                 self.sofa_view_placeholder = None
 
-            self.sofa_view = SofaGLWidget(self.root, model_name=model_name)
+            self.sofa_view = SofaGLWidget(self.root, model_name=model_name, controller=self.controller)
             self.sofa_layout.addWidget(self.sofa_view) # 将真实 3D 画面装进左侧容器
             # ============================================================
 
