@@ -75,8 +75,8 @@ class Ui_MainWindow(object):
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
-        self.btn_start_omega.setText(_translate("MainWindow", "交互模式"))
-        self.btn_start_path.setText(_translate("MainWindow", "预定义模式"))
-        self.btn_pause.setText(_translate("MainWindow", "⏸ 暂停"))
-        self.btn_stop.setText(_translate("MainWindow", "⏹ 停止"))
-        self.label_sys_info.setText(_translate("MainWindow", "系统就绪：等待启动仿真中……"))
+        self.btn_start_omega.setText(_translate("MainWindow", "Omega6 Haptic"))
+        self.btn_start_path.setText(_translate("MainWindow", "Predefined Path"))
+        self.btn_pause.setText(_translate("MainWindow", "⏸ Pause"))
+        self.btn_stop.setText(_translate("MainWindow", "⏹ Stop"))
+        self.label_sys_info.setText(_translate("MainWindow", "System ready. Click Start to begin."))

@@ -2408,7 +2408,7 @@ class MainApp(QMainWindow, Ui_MainWindow):
         # 1. 初始化你在 Qt Designer 里画的界面！
         self.setupUi(self)
 
-        self.setWindowTitle("🏥 Breast Biopsy Simulation & Ultrasound")
+        self.setWindowTitle("Breast Biopsy Simulation & Ultrasound")
 
         self.root = None
         self.controller = None
@@ -2421,7 +2421,7 @@ class MainApp(QMainWindow, Ui_MainWindow):
         # 2. 设置状态栏
         self.statusBar_widget = QStatusBar()
         self.setStatusBar(self.statusBar_widget)
-        self.statusBar_widget.showMessage("准备就绪 - 请点击启动按钮")
+        self.statusBar_widget.showMessage("Ready - click Start to begin")
 
         # 3. 将自定义的 3D视图 和 超声视图 塞进咱们画的占位框里
         self.setup_custom_widgets()
@@ -2444,10 +2444,9 @@ class MainApp(QMainWindow, Ui_MainWindow):
 
         # ================= 左侧：塞入 3D 占位提示 =================
         self.sofa_view_placeholder = QLabel(
-            "🔧 等待仿真启动...\n\n"
-            "点击上方按钮开始\n\n"
-            "🎮 Omega6: 力反馈设备控制\n"
-            "📍 预定义路径: 自动扫描"
+            "Click Start to launch simulation\n\n"
+            "Omega6 Haptic: force-feedback control\n"
+            "Predefined Path: automatic scanning"
         )
         self.sofa_view_placeholder.setAlignment(Qt.AlignCenter)
         self.sofa_view_placeholder.setStyleSheet(
@@ -2459,7 +2458,7 @@ class MainApp(QMainWindow, Ui_MainWindow):
         self.sofa_layout.addWidget(self.sofa_view_placeholder)
 
         # ================= 工具栏：动态添加模型选择下拉框 =================
-        self.label_model = QLabel("模型:")
+        self.label_model = QLabel(" Model:")
         self.label_model.setStyleSheet("color: #ccc; font-size: 13px; font-weight: bold;")
         self.combo_model = QComboBox()
         self.combo_model.setMinimumSize(140, 36)
@@ -2471,8 +2470,8 @@ class MainApp(QMainWindow, Ui_MainWindow):
             "QComboBox QAbstractItemView { background: #333; color: white; "
             "selection-background-color: #4ec9ff; }"
         )
-        self.combo_model.addItem("乳腺 (Breast)", "./input_parameters.yml")
-        self.combo_model.addItem("肝脏 (Liver)", "./inData/input_parameters_liver.yml")
+        self.combo_model.addItem("Breast", "./input_parameters.yml")
+        self.combo_model.addItem("Liver", "./inData/input_parameters_liver.yml")
         # 插入到 btn_stop 之后、spacer 之前
         self.horizontalLayout.insertWidget(4, self.label_model)
         self.horizontalLayout.insertWidget(5, self.combo_model)
@@ -2487,8 +2486,8 @@ class MainApp(QMainWindow, Ui_MainWindow):
 
     def start_simulation(self, use_omega6=False):
         try:
-            mode_text = "Omega6力反馈" if use_omega6 else "预定义路径"
-            self.statusBar_widget.showMessage(f"⏳ 正在初始化 {mode_text}...")
+            mode_text = "Omega6 Haptic" if use_omega6 else "Predefined Path"
+            self.statusBar_widget.showMessage(f"Initializing {mode_text}...")
             QApplication.processEvents()
 
             ensure_plugins()
@@ -2498,7 +2497,7 @@ class MainApp(QMainWindow, Ui_MainWindow):
             # 从下拉框读取模型配置路径
             yml_path = self.combo_model.currentData()
             if not os.path.exists(yml_path):
-                QMessageBox.critical(self, "错误", f"找不到配置文件 {yml_path}！")
+                QMessageBox.critical(self, "Error", f"Config file not found: {yml_path}")
                 return
 
             params = Parameters(yml_path)
@@ -2511,7 +2510,7 @@ class MainApp(QMainWindow, Ui_MainWindow):
                 self.controller = self.root.BreastProbe
                 model_name = self.controller.model_name
             else:
-                raise Exception("无法找到 BreastProbe 控制器")
+                raise Exception("BreastProbe controller not found")
 
             # ============================================================
             # ✅ 重点修改：用真实的 3D 渲染画面 替换掉 占位提示字
@@ -2538,12 +2537,12 @@ class MainApp(QMainWindow, Ui_MainWindow):
             self.btn_stop.setEnabled(True)
             self.combo_model.setEnabled(False)
 
-            self.statusBar_widget.showMessage(f"✅ 仿真运行中 ({mode_text})")
-            self.label_sys_info.setText(f"🚀 仿真已启动 ({mode_text})，正在扫描中...")
+            self.statusBar_widget.showMessage(f"Simulation running ({mode_text})")
+            self.label_sys_info.setText(f"Simulation started ({mode_text}), scanning...")
 
         except Exception as e:
-            QMessageBox.critical(self, "启动失败", f"仿真启动失败:\n{str(e)}")
-            self.statusBar_widget.showMessage("❌ 启动失败")
+            QMessageBox.critical(self, "Startup Failed", f"Failed to start simulation:\n{str(e)}")
+            self.statusBar_widget.showMessage("Startup failed")
             import traceback
             traceback.print_exc()
 
@@ -2598,19 +2597,19 @@ class MainApp(QMainWindow, Ui_MainWindow):
                 # ==========================================================
 
                 # A. 获取扫描进度
-                progress_text = "🎮 模式: 自由操控中"
+                progress_text = "Free Control"
                 if not self.use_omega6 and self.controller and hasattr(self.controller, 'probe'):
                     probe = self.controller.probe
                     if hasattr(probe, 'current_def') and hasattr(probe, 'num_deformations'):
                         # 获取当前走到第几个点 / 总共几个点
-                        progress_text = f"📍 自动扫描进度: 第 {probe.current_def} / {probe.num_deformations} 步"
+                        progress_text = f"Path step: {probe.current_def} / {probe.num_deformations}"
 
                 # B. 判断是否扫查到了结节
-                lesion_text = "⚪ 未发现异常"
+                lesion_text = "No lesion detected"
                 if cross_section and isinstance(cross_section, dict):
                     lesion_segments = cross_section.get('lesion', [])
                     if len(lesion_segments) > 0:  # 如果结节的切面线段大于0，说明切到了结节！
-                        lesion_text = f"🔴 【发现结节】 轮廓点数: {len(lesion_segments)}"
+                        lesion_text = f"[Lesion Found] contour points: {len(lesion_segments)}"
 
                 # C. 把两段文字合并，显示到界面上！
                 self.label_sys_info.setText(f"{progress_text}    |    {lesion_text}")
@@ -2647,25 +2646,25 @@ class MainApp(QMainWindow, Ui_MainWindow):
 
     def _on_simulation_ended(self):
         self.timer.stop()
-        self.statusBar_widget.showMessage("✅ 仿真已完成")
-        QMessageBox.information(self, "仿真完成", "预定义路径仿真已完成！\n\n数据已自动保存。")
+        self.statusBar_widget.showMessage("Simulation completed")
+        QMessageBox.information(self, "Done", "Predefined path simulation completed.\n\nData saved automatically.")
         self.btn_start_omega.setEnabled(True)
         self.btn_start_path.setEnabled(True)
         self.btn_pause.setEnabled(False)
         self.btn_stop.setEnabled(False)
         self.combo_model.setEnabled(True)
-        self.label_sys_info.setText("✅ 自动扫描路径已全部完成！")
+        self.label_sys_info.setText("Automatic scanning path completed.")
 
     def toggle_pause(self):
         if self.is_paused:
             self.timer.start(20)
             self.is_paused = False
-            self.statusBar_widget.showMessage("▶ 仿真运行中")
-            self.btn_pause.setText("⏸ 暂停")
+            self.statusBar_widget.showMessage("Simulation resumed")
+            self.btn_pause.setText("⏸ Pause")
         else:
             self.timer.stop()
             self.is_paused = True
-            self.statusBar_widget.showMessage("⏸ 仿真已暂停")
+            self.statusBar_widget.showMessage("Simulation paused")
             self.btn_pause.setText("▶ 继续")
 
     def stop_simulation(self):
@@ -2682,8 +2681,8 @@ class MainApp(QMainWindow, Ui_MainWindow):
         self.btn_stop.setEnabled(False)
         self.combo_model.setEnabled(True)
 
-        self.statusBar_widget.showMessage("⏹ 仿真已停止")
-        self.label_sys_info.setText("⏹ 仿真已停止。请重新选择模式启动。")
+        self.statusBar_widget.showMessage("Simulation stopped")
+        self.label_sys_info.setText("Simulation stopped. Select a mode and start again.")
 
     def closeEvent(self, event):
         print("\n🛑 正在关闭系统，准备释放资源...")
@@ -2763,12 +2762,11 @@ if __name__ == '__main__':
     print("[Startup] Entering event loop...")
 
     print("\n" + "=" * 60)
-    print("🏥 Breast Biopsy Simulation & Ultrasound - 正确优化版")
+    print("Breast Biopsy Simulation & Ultrasound")
     print("=" * 60)
-    print("✅ 乳腺：实时位置 + 缓存法线（解决闪烁）")
-    print("✅ 探头：缓存模型 + 实时位姿（恢复模型显示）")
-    print("✅ 向量化计算：Numpy 加速 50-100 倍")
-    print("✅ 智能缓存：降低非关键计算频率")
+    print("  Breast: real-time positions + cached normals")
+    print("  Probe:  cached model + real-time pose")
+    print("  Optimized: VBO rendering, numpy vectorization")
     print("=" * 60 + "\n")
 
     sys.exit(app.exec_())
