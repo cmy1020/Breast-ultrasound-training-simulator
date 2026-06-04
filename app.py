@@ -2322,25 +2322,24 @@ class ParameterPanel(QWidget):
         gl = self.parent()  # SofaGLWidget
         step = 0.02  # pan step per click
 
-        # Row 1: Up
+        # Row 1: Up (stretched wide)
         r1 = QHBoxLayout()
-        r1.addStretch()
         btn_u = QPushButton("Up")
+        btn_u.setMinimumWidth(76)
         btn_u.clicked.connect(lambda: self._pan(gl, 0, step))
         r1.addWidget(btn_u)
-        r1.addStretch()
         layout.addLayout(r1)
 
         # Row 2: Left, Down, Right
         r2 = QHBoxLayout()
         btn_l = QPushButton("L")
-        btn_l.clicked.connect(lambda: self._pan(gl, step, 0))
+        btn_l.clicked.connect(lambda: self._pan(gl, -step, 0))
         r2.addWidget(btn_l)
         btn_d = QPushButton("Dn")
         btn_d.clicked.connect(lambda: self._pan(gl, 0, -step))
         r2.addWidget(btn_d)
         btn_r = QPushButton("R")
-        btn_r.clicked.connect(lambda: self._pan(gl, -step, 0))
+        btn_r.clicked.connect(lambda: self._pan(gl, step, 0))
         r2.addWidget(btn_r)
         layout.addLayout(r2)
 
@@ -2388,10 +2387,10 @@ class ParameterPanel(QWidget):
             pass
 
     def _pan(self, gl, dx, dy):
-        """Pan the 3D camera view"""
+        """Pan the 3D camera view (dx,dy = screen direction)"""
         if gl:
-            gl.translate_x += dx
-            gl.translate_y += dy
+            gl.translate_x -= dx
+            gl.translate_y -= dy
             gl.update()
 
 
