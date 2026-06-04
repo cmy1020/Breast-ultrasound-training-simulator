@@ -191,7 +191,7 @@ class SofaGLWidget(QOpenGLWidget):
 
         # ============================================================
         # ✅ 优化1：降低切面计算频率
-        # ============================================================
+        # ============================================================.
         self.cross_section_update_counter = 0
         self.cross_section_update_interval = 5  # 每 5 帧更新一次切面
         # ============================================================
@@ -2317,39 +2317,32 @@ class ParameterPanel(QWidget):
 
         layout.addLayout(row)
 
-    # ── Shift buttons helper ─────────────────────────────────────────
+    # ── Camera pan buttons ────────────────────────────────────────────
     def _add_shift_buttons(self, layout):
+        gl = self.parent()  # SofaGLWidget
+        step = 0.02  # pan step per click
+
         # Row 1: Up
         r1 = QHBoxLayout()
         r1.addStretch()
-        btn_u = QPushButton("↑")
-        btn_u.clicked.connect(lambda: self._shift(0, 0, self.shift_step))
+        btn_u = QPushButton("Up")
+        btn_u.clicked.connect(lambda: self._pan(gl, 0, step))
         r1.addWidget(btn_u)
         r1.addStretch()
         layout.addLayout(r1)
 
         # Row 2: Left, Down, Right
         r2 = QHBoxLayout()
-        btn_l = QPushButton("←")
-        btn_l.clicked.connect(lambda: self._shift(-self.shift_step, 0, 0))
+        btn_l = QPushButton("L")
+        btn_l.clicked.connect(lambda: self._pan(gl, step, 0))
         r2.addWidget(btn_l)
-        btn_d = QPushButton("↓")
-        btn_d.clicked.connect(lambda: self._shift(0, 0, -self.shift_step))
+        btn_d = QPushButton("Dn")
+        btn_d.clicked.connect(lambda: self._pan(gl, 0, -step))
         r2.addWidget(btn_d)
-        btn_r = QPushButton("→")
-        btn_r.clicked.connect(lambda: self._shift(self.shift_step, 0, 0))
+        btn_r = QPushButton("R")
+        btn_r.clicked.connect(lambda: self._pan(gl, -step, 0))
         r2.addWidget(btn_r)
         layout.addLayout(r2)
-
-        # Row 3: Forward, Backward
-        r3 = QHBoxLayout()
-        btn_f = QPushButton("Fwd")
-        btn_f.clicked.connect(lambda: self._shift(0, self.shift_step, 0))
-        r3.addWidget(btn_f)
-        btn_b = QPushButton("Bwd")
-        btn_b.clicked.connect(lambda: self._shift(0, -self.shift_step, 0))
-        r3.addWidget(btn_b)
-        layout.addLayout(r3)
 
     # ── Callbacks ────────────────────────────────────────────────────
     def _on_young(self, val):
@@ -2394,10 +2387,12 @@ class ParameterPanel(QWidget):
         except Exception:
             pass
 
-    def _shift(self, dx, dy, dz):
-        if self.controller and self.controller.breast:
-            self.controller.breast.shift_model(dx, dy, dz)
-            print(f"[Shift] model moved: ({dx:.3f}, {dy:.3f}, {dz:.3f})")
+    def _pan(self, gl, dx, dy):
+        """Pan the 3D camera view"""
+        if gl:
+            gl.translate_x += dx
+            gl.translate_y += dy
+            gl.update()
 
 
 # 主窗口 - 联动画图界面 (Qt Designer) 版本
