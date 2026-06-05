@@ -323,14 +323,29 @@ class Probe(Sofa.Core.Controller):
                 probe_init_pos = np.array(self.init_pose[:3])
                 self.position_offset = probe_init_pos - self.omega6_init_pos
 
-                self.position_amplification = 0.6  #探头移动
-                self.smoothing_factor = 0.8  # ✅ 降低：0.95→0.4，减少过冲 突变
-                self.max_speed_far = 0.01  # ✅ 提高远距离速度（更跟手）
-                self.max_speed_near = 0.002  # ✅ 降低近距离速度（更平滑）
-                self.near_threshold = 0.03  # ✅ 扩大感应范围：10mm→30mm
+                # also calibrate orientation
+                init_device_quat = euler_to_quaternion(
+                    omega_ori[1] + math.pi,
+                    omega_ori[2] + math.pi,
+                    omega_ori[0]
+                )
+                half = math.radians(-90.0) * 0.5
+                c, s = math.cos(half), math.sin(half)
+                q_fix = np.array([s, 0.0, 0.0, c])
+                init_device_quat = self._multiply_quaternions(q_fix, init_device_quat)
+                # offset = SOFA_init_quat * inv(device_init_quat)
+                sofa_init_quat = np.array(self.init_pose[3:])
+                self.orientation_offset = self._multiply_quaternions(
+                    sofa_init_quat, self._inverse_quaternion(init_device_quat)
+                )
 
-                print(f"✓ Omega6坐标系已校准")
-                print(f"  初始偏移: {self.position_offset}")
+                self.position_amplification = 0.6
+                self.smoothing_factor = 0.8
+                self.max_speed_far = 0.01
+                self.max_speed_near = 0.002
+                self.near_threshold = 0.03
+
+                print(f"Omega6 calibrated: pos_offset={self.position_offset}")
 
             # ── 计算目标位置 ──────────────────────────────────────────
             raw_delta = (omega_pos - self.omega6_init_pos) * self.position_amplification
@@ -388,18 +403,8 @@ class Probe(Sofa.Core.Controller):
                 omega_ori[2] + math.pi,
                 omega_ori[0]
             )
-
-            COMPENSATE_AXIS = 'x'
-            COMPENSATE_ANGLE = -90.0
-            half = math.radians(COMPENSATE_ANGLE) * 0.5
-            c, s = math.cos(half), math.sin(half)
-            if COMPENSATE_AXIS == 'x':
-                q_fix = np.array([s, 0.0, 0.0, c])
-            elif COMPENSATE_AXIS == 'y':
-                q_fix = np.array([0.0, s, 0.0, c])
-            else:
-                q_fix = np.array([0.0, 0.0, s, c])
-            quat = self._multiply_quaternions(q_fix, quat)
+            # Apply calibration offset
+            quat = self._multiply_quaternions(self.orientation_offset, quat)
 
             new_pose = np.concatenate([new_probe_pos, quat])
             self.state.position.value = [new_pose]
@@ -660,6 +665,10 @@ class Probe(Sofa.Core.Controller):
             w1*z2 + x1*y2 - y1*x2 + z1*w2,
             w1*w2 - x1*x2 - y1*y2 - z1*z2
         ])
+
+    def _inverse_quaternion(self, q):
+        """四元数的逆（共轭） [qx, qy, qz, qw]"""
+        return np.array([-q[0], -q[1], -q[2], q[3]])
 
     def create_linear_motion(
             self,
