@@ -323,18 +323,14 @@ class Probe(Sofa.Core.Controller):
                 probe_init_pos = np.array(self.init_pose[:3])
                 self.position_offset = probe_init_pos - self.omega6_init_pos
 
-                # also calibrate orientation
+                # also calibrate orientation (raw device quat, no q_fix)
                 init_device_quat = euler_to_quaternion(
                     omega_ori[1] + math.pi,
                     omega_ori[2] + math.pi,
                     omega_ori[0]
                 )
-                half = math.radians(-90.0) * 0.5
-                c, s = math.cos(half), math.sin(half)
-                q_fix = np.array([s, 0.0, 0.0, c])
-                init_device_quat = self._multiply_quaternions(q_fix, init_device_quat)
-                # offset = SOFA_init_quat * inv(device_init_quat)
                 sofa_init_quat = np.array(self.init_pose[3:])
+                # offset = SOFA_init * inv(raw_device_init)
                 self.orientation_offset = self._multiply_quaternions(
                     sofa_init_quat, self._inverse_quaternion(init_device_quat)
                 )
@@ -403,7 +399,12 @@ class Probe(Sofa.Core.Controller):
                 omega_ori[2] + math.pi,
                 omega_ori[0]
             )
-            # Apply calibration offset
+            # axis compensation (device axes → probe axes)
+            half = math.radians(-90.0) * 0.5
+            c, s = math.cos(half), math.sin(half)
+            q_fix = np.array([s, 0.0, 0.0, c])
+            quat = self._multiply_quaternions(q_fix, quat)
+            # calibration offset (align initial poses)
             quat = self._multiply_quaternions(self.orientation_offset, quat)
 
             new_pose = np.concatenate([new_probe_pos, quat])
