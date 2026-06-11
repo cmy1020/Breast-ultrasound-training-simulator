@@ -198,7 +198,9 @@ class Probe(Sofa.Core.Controller):
             import os
             from datetime import datetime
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename  = f"fx_data_{timestamp}.txt"
+            save_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'archive', 'fx_data')
+            os.makedirs(save_dir, exist_ok=True)
+            filename  = os.path.join(save_dir, f"fx_data_{timestamp}.txt")
             self._data_file = open(filename, 'w', encoding='utf-8')
             # 写表头
             self._data_file.write("displacement_m\tforce_N\n")

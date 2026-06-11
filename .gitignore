@@ -21,7 +21,9 @@ checkpoints/
 checkpoints_first/
 checkpoints_second/
 
-# GAN training data
+# GAN (not for release)
+GAN_train.py
+gan_worker.py
 datasets/
 training_samples/
 
@@ -39,6 +41,9 @@ human_data_clean.csv
 real_data_clean.csv
 scan_data.csv
 scan_data_clean.csv
+
+# Documentation images
+img/
 
 # Generated images in root (moved to outputs/)
 *.png
