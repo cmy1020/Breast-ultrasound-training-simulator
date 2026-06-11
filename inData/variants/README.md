@@ -40,7 +40,7 @@ indices for the chest-wall attachment) applies unchanged.
 
 ## 3. How to run a variant
 
-From the project root (`/Users/camille/Desktop/分析`):
+From the project root:
 
 ```bash
 # 1) pick a variant and put its YAML into the canonical location

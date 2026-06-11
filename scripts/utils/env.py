@@ -40,9 +40,9 @@ def get_system_info():
         if torch.cuda.is_available():
             print(torch.cuda.get_device_name(0))
         else:
-            print("未检测到 CUDA 可用 (已知为 GTX 1650 Ti)")
+            print("未检测到 CUDA 可用")
     except ImportError:
-        print("GTX 1650 Ti (未安装 PyTorch，手动确认)")
+        print("未安装 PyTorch，无法检测 GPU")
 
 
 if __name__ == "__main__":

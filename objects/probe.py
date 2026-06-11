@@ -15,7 +15,7 @@ from components.tetrahedral import Topology, add_collision_models, add_loader, a
 class Omega6Device:
     """Omega6力反馈设备接口"""
 
-    def __init__(self, dll_path=r"E:\sdk-3.17.6\bin\dhd64.dll"):
+    def __init__(self, dll_path=r"path\to\dhd64.dll"):  # ← 修改为你的SDK路径
         self.dhd = ctypes.CDLL(dll_path)
         self._setup_functions()
 

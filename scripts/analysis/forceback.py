@@ -1,7 +1,7 @@
 import vtk
 
 # ========= 配置 =========
-STL_PATH = r"C:/Users/86150/Desktop/test.stl"  # 改成你的模型路径
+STL_PATH = r"path/to/your/model.stl"  # 改成你的模型路径
 PLANE_SIZE = 150.0      # 平面大小，应略大于模型 X/Y 范围
 PLANE_RES = 200         # 2D 图像分辨率
 INITIAL_Z = 0.0         # 初始切片位置

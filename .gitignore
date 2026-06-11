@@ -24,6 +24,8 @@ checkpoints_second/
 # GAN (not for release)
 GAN_train.py
 gan_worker.py
+traintest.py
+data_prepare.py
 datasets/
 training_samples/
 

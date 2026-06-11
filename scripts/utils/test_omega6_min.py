@@ -80,8 +80,8 @@ def subdivide_stl_custom(input_path, output_path, target_multiplier=3):
 
 if __name__ == "__main__":
     #  修改这两行，设置你的输入和输出路径
-    INPUT_STL_PATH = "C:/Users/86150/Desktop/breast_500.stl"      # 输入STL文件路径
-    OUTPUT_STL_PATH = "C:/Users/86150/Desktop/breast.stl"  # 输出STL文件路径
+    INPUT_STL_PATH = "path/to/your/input.stl"      # 输入STL文件路径
+    OUTPUT_STL_PATH = "path/to/your/output.stl"  # 输出STL文件路径
 
     # 方法1：标准细分（约4倍面片）
     subdivide_stl(INPUT_STL_PATH, OUTPUT_STL_PATH, iterations=1)
