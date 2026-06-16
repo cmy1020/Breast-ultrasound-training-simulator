@@ -54,7 +54,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QOpenGLWidget,
                              QPushButton, QMessageBox, QStatusBar, QComboBox,
                              QSlider)
 from PyQt5.QtCore import QTimer, Qt
-from PyQt5.QtGui import QImage, QPixmap, QSurfaceFormat
+from PyQt5.QtGui import QImage, QPixmap, QSurfaceFormat, QOpenGLWindow
 from OpenGL.GL import *
 from OpenGL.GLU import gluPerspective
 import ctypes
@@ -1655,11 +1655,11 @@ class SofaGLWidget(QOpenGLWidget):
 # ============================================================
 # 主动立体 3D 闪烁窗口（Quad-Buffered Stereo）
 # ============================================================
-class StereoGLWidget(QOpenGLWidget):
-    """独立立体渲染窗口 — 独立 GL 上下文，复用 SofaGLWidget 方法"""
+class StereoGLWidget(QOpenGLWindow):
+    """独立立体渲染窗口 — 直接对接硬件层以支持 Quad-Buffer（QOpenGLWidget 的 FBO 不支持）"""
 
-    def __init__(self, root_node, mono_widget, parent=None):
-        super().__init__(parent)
+    def __init__(self, root_node, mono_widget):
+        super().__init__()
         self.root_node = root_node
         self.mono_widget = mono_widget
 
@@ -1886,8 +1886,10 @@ class StereoWindow(QMainWindow):
         self.setWindowTitle("Stereo 3D")
         self.setWindowFlags(Qt.Window)
 
-        self.stereo_gl = StereoGLWidget(root_node, mono_widget, parent=self)
-        self.setCentralWidget(self.stereo_gl)
+        # QOpenGLWindow 不能直接当 Widget 用，必须包一层 createWindowContainer
+        self.stereo_gl = StereoGLWidget(root_node, mono_widget)
+        container = QWidget.createWindowContainer(self.stereo_gl, self)
+        self.setCentralWidget(container)
 
         # 自动定位到第二屏幕（沉浸式显示器）
         self._position_on_immersive_display()
