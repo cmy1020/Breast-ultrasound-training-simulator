@@ -1653,6 +1653,260 @@ class SofaGLWidget(QOpenGLWidget):
 
 
 # ============================================================
+# 主动立体 3D 闪烁窗口（Quad-Buffered Stereo）
+# ============================================================
+class StereoGLWidget(QOpenGLWidget):
+    """独立立体渲染窗口 — 独立 GL 上下文，复用 SofaGLWidget 方法"""
+
+    def __init__(self, root_node, mono_widget, parent=None):
+        super().__init__(parent)
+        self.root_node = root_node
+        self.mono_widget = mono_widget
+
+        # 请求立体像素格式
+        fmt = QSurfaceFormat()
+        fmt.setVersion(2, 1)
+        fmt.setProfile(QSurfaceFormat.CompatibilityProfile)
+        fmt.setDepthBufferSize(24)
+        fmt.setStencilBufferSize(8)
+        fmt.setStereo(True)
+        fmt.setSwapBehavior(QSurfaceFormat.DoubleBuffer)
+        fmt.setSamples(0)  # MSAA 可能与 quad-buffer 冲突
+        self.setFormat(fmt)
+
+        # 立体参数（硬编码，后续手动微调）
+        self.iod = 0.065           # 瞳距 (m)
+        self.convergence_dist = 0.5  # 零视差平面距离 (m)
+        self.stereo_active = True
+
+        # 相机参数（从 mono 同步）
+        self.rotation_x = 90
+        self.rotation_y = 0
+        self.zoom = -0.5
+        self.translate_x = 0.1
+        self.translate_y = -0.1
+        self.model_name = mono_widget.model_name
+
+        # 探头缓存（独立于 mono）
+        self.probe_mesh_cached = False
+        self.probe_positions = None
+        self.probe_triangles = None
+        self.probe_normals = None
+
+        # 独立 VBO 状态（GL 上下文隔离）
+        self._breast_vbo_id = None
+        self._breast_ibo_id = None
+        self._breast_index_count = 0
+        self._breast_vbo_initialized = False
+        self._lesion_vbo_id = None
+        self._lesion_ibo_id = None
+        self._lesion_index_count = 0
+        self._lesion_vbo_initialized = False
+        self._probe_vbo_id = None
+        self._probe_ibo_id = None
+        self._probe_index_count = 0
+        self._probe_vbo_initialized = False
+
+        self.initialized = False
+        self.show_scan_plane = True
+        self.scan_plane_size = 0.08
+        self.scan_plane_offset = -0.00
+        self.current_cross_section = None
+        self.current_probe_transform = None
+        self.breast_normals_cached = None
+        self.breast_normals_update_counter = 0
+        self.breast_normals_update_interval = 3
+        self.frame_counter = 0
+
+    # ── 复用 SofaGLWidget 的核心方法（通过类属性别名） ──────────
+    _create_vbo = SofaGLWidget._create_vbo
+    _update_vbo_data = SofaGLWidget._update_vbo_data
+    _draw_vbo = SofaGLWidget._draw_vbo
+    _compute_vertex_normals_fast = SofaGLWidget._compute_vertex_normals_fast
+    _compute_probe_normals = SofaGLWidget._compute_probe_normals
+    quaternion_to_matrix = SofaGLWidget.quaternion_to_matrix
+    render_breast = SofaGLWidget.render_breast
+    render_probe = SofaGLWidget.render_probe
+    render_lesion = SofaGLWidget.render_lesion
+    draw_scan_plane_3d = SofaGLWidget.draw_scan_plane_3d
+    render_sofa_scene = SofaGLWidget.render_sofa_scene
+
+    def _sync_camera(self):
+        """从主窗口同步相机参数"""
+        mw = self.mono_widget
+        self.rotation_x = mw.rotation_x
+        self.rotation_y = mw.rotation_y
+        self.zoom = mw.zoom
+        self.translate_x = mw.translate_x
+        self.translate_y = mw.translate_y
+        self.scan_plane_size = mw.scan_plane_size
+        self.scan_plane_offset = mw.scan_plane_offset
+        self.show_scan_plane = mw.show_scan_plane
+        self.model_name = mw.model_name
+        # 共享切面数据（避免重复计算昂贵的 mesh-plane 交点）
+        if mw.current_cross_section is not None:
+            self.current_cross_section = mw.current_cross_section
+            self.current_probe_transform = mw.current_probe_transform
+
+    def initializeGL(self):
+        try:
+            glEnable(GL_DEPTH_TEST)
+            glDepthFunc(GL_LEQUAL)
+            glClearColor(0.15, 0.15, 0.20, 1.0)
+            glEnable(GL_LIGHTING)
+            glEnable(GL_LIGHT0)
+            glEnable(GL_COLOR_MATERIAL)
+            glLightfv(GL_LIGHT0, GL_POSITION, [1.0, 1.0, 1.0, 0.0])
+            glLightfv(GL_LIGHT0, GL_AMBIENT, [0.3, 0.3, 0.3, 1.0])
+            glLightfv(GL_LIGHT0, GL_DIFFUSE, [0.9, 0.9, 0.9, 1.0])
+            glLightfv(GL_LIGHT0, GL_SPECULAR, [0.5, 0.5, 0.5, 1.0])
+
+            # 检查立体是否真正可用
+            ext = glGetString(GL_EXTENSIONS)
+            if ext and b'GL_STEREO' in ext:
+                print("✓ StereoGLWidget: GL_STEREO 扩展可用")
+            else:
+                print("⚠ StereoGLWidget: GL_STEREO 扩展未检测到（可能无 Quadro 显卡）")
+
+            self.initialized = True
+            print("✓ StereoGLWidget OpenGL 初始化成功")
+        except Exception as e:
+            print(f"✗ StereoGLWidget OpenGL 初始化失败: {e}")
+
+    def resizeGL(self, w, h):
+        glViewport(0, 0, w, h)
+
+    def paintGL(self):
+        if not self.initialized or not self.root_node:
+            return
+
+        try:
+            self.frame_counter += 1
+            self._sync_camera()
+
+            if self.stereo_active:
+                w, h = self.width(), self.height()
+
+                # ── 左眼 ──────────────────────────────────────
+                glDrawBuffer(GL_BACK_LEFT)
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+                self._setup_stereo_projection('left', w, h)
+                self._setup_stereo_camera('left')
+                self.render_sofa_scene()
+
+                # ── 右眼 ──────────────────────────────────────
+                glDrawBuffer(GL_BACK_RIGHT)
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+                self._setup_stereo_projection('right', w, h)
+                self._setup_stereo_camera('right')
+                self.render_sofa_scene()
+            else:
+                # 单眼回退（调试用）
+                glDrawBuffer(GL_BACK)
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+                self._setup_mono_projection()
+                self._setup_mono_camera()
+                self.render_sofa_scene()
+
+        except Exception as e:
+            pass  # 静默处理，避免刷屏
+
+    def _setup_stereo_projection(self, eye, w, h):
+        """非对称视锥体立体投影"""
+        import math
+        aspect = w / (h if h > 0 else 1)
+        fov_y = 45.0
+        near = 0.01
+        far = 100.0
+
+        top = near * math.tan(math.radians(fov_y / 2.0))
+        bottom = -top
+        right_std = aspect * top
+        left_std = -right_std
+
+        # 非对称偏移：零视差面在 convergence_dist
+        half_iod = self.iod / 2.0
+        frustum_shift = half_iod * near / self.convergence_dist
+
+        glMatrixMode(GL_PROJECTION)
+        glLoadIdentity()
+
+        if eye == 'left':
+            # 左眼视锥右移 → 画面左移 → 左眼看到物体偏右
+            glFrustum(left_std + frustum_shift, right_std + frustum_shift,
+                      bottom, top, near, far)
+        else:
+            # 右眼视锥左移 → 画面右移 → 右眼看到物体偏左
+            glFrustum(left_std - frustum_shift, right_std - frustum_shift,
+                      bottom, top, near, far)
+
+        glMatrixMode(GL_MODELVIEW)
+
+    def _setup_stereo_camera(self, eye):
+        """轨道相机 + 眼偏移"""
+        glLoadIdentity()
+        glTranslatef(self.translate_x, self.translate_y, self.zoom)
+        glRotatef(self.rotation_x, 1, 0, 0)
+        glRotatef(self.rotation_y, 0, 0, 1)
+
+        half_iod = self.iod / 2.0
+        if eye == 'left':
+            glTranslatef(-half_iod, 0, 0)
+        else:
+            glTranslatef(+half_iod, 0, 0)
+
+    def _setup_mono_projection(self):
+        """单眼投影（调试回退）"""
+        w, h = self.width(), self.height()
+        aspect = w / (h if h > 0 else 1)
+        glMatrixMode(GL_PROJECTION)
+        glLoadIdentity()
+        gluPerspective(45, aspect, 0.01, 100.0)
+        glMatrixMode(GL_MODELVIEW)
+
+    def _setup_mono_camera(self):
+        """单眼相机（调试回退）"""
+        glLoadIdentity()
+        glTranslatef(self.translate_x, self.translate_y, self.zoom)
+        glRotatef(self.rotation_x, 1, 0, 0)
+        glRotatef(self.rotation_y, 0, 0, 1)
+
+
+class StereoWindow(QMainWindow):
+    """可拖拽的独立立体窗口"""
+
+    def __init__(self, root_node, mono_widget, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Stereo 3D")
+        self.setWindowFlags(Qt.Window)
+
+        self.stereo_gl = StereoGLWidget(root_node, mono_widget, parent=self)
+        self.setCentralWidget(self.stereo_gl)
+
+        # 自动定位到第二屏幕（沉浸式显示器）
+        self._position_on_immersive_display()
+
+    def _position_on_immersive_display(self):
+        from PyQt5.QtWidgets import QDesktopWidget
+        desktop = QDesktopWidget()
+        if desktop.screenCount() > 1:
+            geo = desktop.screenGeometry(1)
+            self.setGeometry(geo)
+            print(f"✓ Stereo 窗口已定位到屏幕 2: {geo.width()}x{geo.height()}")
+        else:
+            self.resize(1024, 768)
+            self.move(1600, 100)
+            print("⚠ 仅检测到单屏幕，Stereo 窗口默认位置 (1600, 100)")
+
+    def closeEvent(self, event):
+        print("Stereo 窗口已关闭")
+        # 通知 MainApp 清理状态
+        if hasattr(self, '_on_closed_callback') and self._on_closed_callback:
+            self._on_closed_callback()
+        event.accept()
+
+
+# ============================================================
 # 超声图像显示窗口（保持不变）
 # ============================================================
 class UltrasoundWidget(QWidget):
@@ -2411,6 +2665,8 @@ class MainApp(QMainWindow, Ui_MainWindow):
         self.is_paused = False
         self.use_omega6 = False
         self.simulation_ended = False
+        self.stereo_window = None
+        self.stereo_enabled = False
 
         # 2. 设置状态栏
         self.statusBar_widget = QStatusBar()
@@ -2469,6 +2725,21 @@ class MainApp(QMainWindow, Ui_MainWindow):
         # 插入到 btn_stop 之后、spacer 之前
         self.horizontalLayout.insertWidget(4, self.label_model)
         self.horizontalLayout.insertWidget(5, self.combo_model)
+
+        # ================= 工具栏：3D Stereo 切换按钮 =================
+        self.btn_stereo = QPushButton("3D Stereo")
+        self.btn_stereo.setCheckable(True)
+        self.btn_stereo.setMinimumSize(100, 36)
+        self.btn_stereo.setStyleSheet(
+            "QPushButton { background: #3c3c3c; color: white; border: 1px solid #555; "
+            "border-radius: 4px; padding: 10px; }"
+            "QPushButton:hover { background: #4c4c4c; border-color: #4ec9ff; }"
+            "QPushButton:checked { background: #1a4a6e; border-color: #4ec9ff; color: #4ec9ff; }"
+            "QPushButton:disabled { background: #2b2b2b; color: #666; }"
+        )
+        self.btn_stereo.setEnabled(False)
+        self.btn_stereo.clicked.connect(self.toggle_stereo)
+        self.horizontalLayout.insertWidget(6, self.btn_stereo)
 
     def connect_signals(self):
         """绑定按钮功能"""
@@ -2529,6 +2800,7 @@ class MainApp(QMainWindow, Ui_MainWindow):
             self.btn_start_path.setEnabled(False)
             self.btn_pause.setEnabled(True)
             self.btn_stop.setEnabled(True)
+            self.btn_stereo.setEnabled(True)
             self.combo_model.setEnabled(False)
 
             self.statusBar_widget.showMessage(f"Simulation running ({mode_text})")
@@ -2646,7 +2918,9 @@ class MainApp(QMainWindow, Ui_MainWindow):
         self.btn_start_path.setEnabled(True)
         self.btn_pause.setEnabled(False)
         self.btn_stop.setEnabled(False)
+        self.btn_stereo.setEnabled(False)
         self.combo_model.setEnabled(True)
+        self._close_stereo()
         self.label_sys_info.setText("Automatic scanning path completed.")
 
     def toggle_pause(self):
@@ -2661,6 +2935,53 @@ class MainApp(QMainWindow, Ui_MainWindow):
             self.statusBar_widget.showMessage("Simulation paused")
             self.btn_pause.setText("▶ 继续")
 
+    def toggle_stereo(self):
+        """切换立体窗口"""
+        if self.stereo_enabled:
+            self._close_stereo()
+        else:
+            self._open_stereo()
+
+    def _open_stereo(self):
+        if not self.root:
+            return
+        self.stereo_window = StereoWindow(self.root, self.sofa_view)
+        self.stereo_window._on_closed_callback = self._on_stereo_window_closed
+        self.stereo_window.show()
+        self.stereo_enabled = True
+        self.btn_stereo.setChecked(True)
+        self.btn_stereo.setText("3D Stereo ON")
+        self.statusBar_widget.showMessage("Stereo 3D window opened — drag to immersive display")
+
+        # 独立刷新定时器（~60Hz，不依赖 50Hz 仿真循环）
+        self._stereo_timer = QTimer()
+        self._stereo_timer.timeout.connect(
+            lambda: self.stereo_window.stereo_gl.update()
+            if self.stereo_window else None
+        )
+        self._stereo_timer.start(16)
+
+    def _close_stereo(self):
+        if hasattr(self, '_stereo_timer'):
+            self._stereo_timer.stop()
+        if self.stereo_window:
+            # 防止递归（从 closeEvent 回调进入时窗口已在关闭中）
+            win = self.stereo_window
+            self.stereo_window = None
+            try:
+                win.close()
+            except Exception:
+                pass
+        self.stereo_enabled = False
+        self.btn_stereo.setChecked(False)
+        self.btn_stereo.setText("3D Stereo")
+        self.statusBar_widget.showMessage("Stereo 3D window closed")
+
+    def _on_stereo_window_closed(self):
+        """立体窗口被用户手动关闭（点X）时的回调"""
+        self.stereo_window = None  # 避免 _close_stereo 再次尝试 close
+        self._close_stereo()
+
     def stop_simulation(self):
         self.timer.stop()
         self.simulation_ended = True
@@ -2673,10 +2994,12 @@ class MainApp(QMainWindow, Ui_MainWindow):
         self.btn_start_path.setEnabled(True)
         self.btn_pause.setEnabled(False)
         self.btn_stop.setEnabled(False)
+        self.btn_stereo.setEnabled(False)
         self.combo_model.setEnabled(True)
 
         self.statusBar_widget.showMessage("Simulation stopped")
         self.label_sys_info.setText("Simulation stopped. Select a mode and start again.")
+        self._close_stereo()
 
     def closeEvent(self, event):
         print("\n🛑 正在关闭系统，准备释放资源...")
@@ -2708,7 +3031,10 @@ class MainApp(QMainWindow, Ui_MainWindow):
         if hw_thread.is_alive():
             print("  ⚠️ Omega6释放超时，放弃等待！")
 
-        # 3. 停止GAN线程
+        # 3. 关闭立体窗口
+        self._close_stereo()
+
+        # 4. 停止GAN线程
         if hasattr(self, 'us_view') and hasattr(self.us_view, 'gan_worker'):
             try:
                 self.us_view.gan_worker.stop()
@@ -2727,6 +3053,7 @@ if __name__ == '__main__':
     fmt.setProfile(QSurfaceFormat.CompatibilityProfile)
     fmt.setDepthBufferSize(24)
     fmt.setStencilBufferSize(8)
+    fmt.setStereo(True)   # 主动立体 3D（Quad-Buffered Stereo）
     fmt.setSamples(4)
     fmt.setSwapBehavior(QSurfaceFormat.DoubleBuffer)
     QSurfaceFormat.setDefaultFormat(fmt)
