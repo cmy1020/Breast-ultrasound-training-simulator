@@ -1809,7 +1809,13 @@ class StereoGLWidget(QOpenGLWidget):
                 self.render_sofa_scene()
 
         except Exception as e:
-            pass  # 静默处理，避免刷屏
+            self._paint_error_count = getattr(self, '_paint_error_count', 0) + 1
+            if self._paint_error_count <= 5:
+                import traceback
+                print(f"[StereoGLWidget error #{self._paint_error_count}] {e}")
+                traceback.print_exc()
+            elif self._paint_error_count == 6:
+                print("[StereoGLWidget] 已抑制后续错误输出（避免刷屏）")
 
     def _setup_stereo_projection(self, eye, w, h):
         """非对称视锥体立体投影"""
