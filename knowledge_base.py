@@ -64,7 +64,7 @@ class KnowledgeBase:
         if not query or not query.strip():
             return {
                 "question": "",
-                "answer": "请输入你的问题。",
+                "answer": "Please type a question.",
                 "score": 1.0,
             }
 
@@ -117,14 +117,14 @@ class KnowledgeBase:
         return {
             "question": "",
             "answer": (
-                "抱歉，我目前的知识库还没有覆盖这个问题。"
-                "你可以尝试用不同的方式提问，比如：<br><br>"
-                "• \"BI-RADS 分级是什么？\"<br>"
-                "• \"如何区分良性和恶性病灶？\"<br>"
-                "• \"乳腺扫查顺序是怎样的？\"<br>"
-                "• \"探头应该如何握持？\"<br>"
-                "• \"乳腺解剖层次有哪些？\"<br><br>"
-                "如需更详细的帮助，请咨询导师或查阅教材。"
+                "Sorry, I don't have an answer for that yet. "
+                "Try rephrasing your question, for example:<br><br>"
+                "• \"What is BI-RADS?\"<br>"
+                "• \"How to tell benign from malignant lesions?\"<br>"
+                "• \"What is the scanning order for breast ultrasound?\"<br>"
+                "• \"How to hold the ultrasound probe?\"<br>"
+                "• \"What are the anatomical layers of the breast?\"<br><br>"
+                "For further help, please consult your instructor or reference materials."
             ),
             "score": best_score,
         }

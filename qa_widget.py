@@ -94,7 +94,7 @@ class QAWidget(QWidget):
         self.title_bar.setFixedHeight(28)
         title_layout = QHBoxLayout(self.title_bar)
         title_layout.setContentsMargins(12, 4, 12, 4)
-        title_label = QLabel("💬 知识问答")
+        title_label = QLabel("💬 Knowledge Q&A")
         title_label.setStyleSheet("color: #4ec9ff; font-size: 12px; font-weight: bold; background: transparent;")
         title_layout.addWidget(title_label)
         title_layout.addStretch()
@@ -110,7 +110,7 @@ class QAWidget(QWidget):
         )
         self.chat_label.setText(
             '<div style="color:#888; text-align:center; padding:20px;">'
-            '输入乳腺扫查相关问题，如："BI-RADS 分级是什么？"</div>'
+            'Ask about breast ultrasound, e.g. "What is BI-RADS?"</div>'
         )
 
         self.scroll_area = QScrollArea()
@@ -126,11 +126,11 @@ class QAWidget(QWidget):
         input_layout.setContentsMargins(8, 6, 8, 6)
 
         self.input_box = QLineEdit()
-        self.input_box.setPlaceholderText("输入问题，按 Enter 发送...")
+        self.input_box.setPlaceholderText("Type a question, press Enter...")
         self.input_box.returnPressed.connect(self._on_send)
         input_layout.addWidget(self.input_box, stretch=1)
 
-        self.btn_send = QPushButton("发送")
+        self.btn_send = QPushButton("Send")
         self.btn_send.setObjectName("btn_send")
         self.btn_send.clicked.connect(self._on_send)
         input_layout.addWidget(self.btn_send)
