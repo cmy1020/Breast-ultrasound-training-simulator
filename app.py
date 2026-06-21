@@ -2693,12 +2693,16 @@ class MainApp(QMainWindow, Ui_MainWindow):
 
     def setup_custom_widgets(self):
         """将自定义组件注入到 UI 的容器中"""
-        # ================= 右侧：塞入超声视图 =================
+        # ================= 右侧：塞入超声视图 + 知识问答 =================
         self.us_view = UltrasoundWidget()
-        # 给右侧容器加个布局，把超声画面填进去
+        # 给右侧容器加个布局，超声在上（stretch=3），问答在下（stretch=1）
         us_layout = QVBoxLayout(self.container_us)
         us_layout.setContentsMargins(0, 0, 0, 0)
-        us_layout.addWidget(self.us_view)
+        us_layout.addWidget(self.us_view, stretch=3)
+
+        from qa_widget import QAWidget
+        self.qa_widget = QAWidget()
+        us_layout.addWidget(self.qa_widget, stretch=1)
 
         # ================= 左侧：塞入 3D 占位提示 =================
         self.sofa_view_placeholder = QLabel(
